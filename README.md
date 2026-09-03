@@ -1,0 +1,123 @@
+# sudoku-board
+
+A small library and command-line tool for reading a sudoku board from
+text, checking whether its given clues are actually legal, and printing
+it back out either for a person or for another program.
+
+Most "sudoku parser" snippets floating around only handle one input
+shape (usually a single 81-character line) and assume the input is
+already valid. This one accepts a couple of common shapes, tells you
+exactly which clues collide when they don't, and gives you the result
+as JSON when you need to feed it to something else instead of your
+own eyes.
+
+## Install
+
+No dependencies, nothing to build. Either run it in place:
+
+```
+python -m sudoku_board.cli puzzle.txt
+```
+
+or install it so the `sudoku-board` command is on your PATH:
+
+```
+pip install -e .
+```
+
+## Input format
+
+A board is 81 cells, read left-to-right and top-to-bottom. `1`-`9` are
+clues; `.`, `0`, or `_` are blanks. All whitespace is ignored, so both
+of these are the same input:
+
+```
+53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79
+```
+
+```
+5 3 . . 7 . . . .
+6 . . 1 9 5 . . .
+. 9 8 . . . . 6 .
+8 . . . 6 . . . 3
+4 . . 8 . 3 . . 1
+7 . . . 2 . . . 6
+. 6 . . . . 2 8 .
+. . . 4 1 9 . . 5
+. . . . 8 . . 7 9
+```
+
+## Usage
+
+Save the puzzle above as `puzzle.txt` and run:
+
+```
+$ sudoku-board puzzle.txt
++-------+-------+-------+
+| 5 3 . | . 7 . | . . . |
+| 6 . . | 1 9 5 | . . . |
+| . 9 8 | . . . | . 6 . |
++-------+-------+-------+
+| 8 . . | . 6 . | . . 3 |
+| 4 . . | 8 . 3 | . . 1 |
+| 7 . . | . 2 . | . . 6 |
++-------+-------+-------+
+| . 6 . | . . . | 2 8 . |
+| . . . | 4 1 9 | . . 5 |
+| . . . | . 8 . | . 7 9 |
++-------+-------+-------+
+```
+
+With no file argument it reads from stdin, so a puzzle can be piped in
+directly. Pass `--json` for a machine-readable form instead:
+
+```
+$ sudoku-board --json puzzle.txt
+{
+  "cells": [[5, 3, 0, 0, 7, 0, 0, 0, 0], ...],
+  "valid": true,
+  "conflicts": []
+}
+```
+
+If two clues clash, the exit code is 1 and both output modes say why.
+For example, changing the first two cells of the puzzle above to `55`
+gives:
+
+```
+$ sudoku-board --json bad.txt
+{
+  "cells": [[5, 5, 0, 0, 7, 0, 0, 0, 0], ...],
+  "valid": false,
+  "conflicts": [
+    {"kind": "row", "index": 0, "value": 5, "cells": [{"row": 0, "col": 0}, {"row": 0, "col": 1}]},
+    {"kind": "box", "index": 0, "value": 5, "cells": [{"row": 0, "col": 0}, {"row": 0, "col": 1}]}
+  ]
+}
+```
+
+and the plain-text mode prints the grid followed by:
+
+```
+duplicate 5 in row 1: r1c1, r1c2
+duplicate 5 in box 1: r1c1, r1c2
+```
+
+## As a library
+
+```python
+from sudoku_board import parse, find_conflicts, format_pretty
+
+board = parse(open("puzzle.txt").read())
+conflicts = find_conflicts(board)
+print(format_pretty(board, conflicts))
+```
+
+`parse` raises `BoardParseError` for structural problems (wrong cell
+count, characters that aren't `1`-`9`/`.`/`0`/`_`). It never raises for
+clue collisions; those come back from `find_conflicts` so you can
+decide what to do with them.
+
+## License
+
+MIT, see `LICENSE`.
