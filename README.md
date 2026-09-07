@@ -118,6 +118,12 @@ count, characters that aren't `1`-`9`/`.`/`0`/`_`). It never raises for
 clue collisions; those come back from `find_conflicts` so you can
 decide what to do with them.
 
+## Tests
+
+```
+python -m unittest discover -s tests
+```
+
 ## License
 
 MIT, see `LICENSE`.
