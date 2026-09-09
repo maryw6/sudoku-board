@@ -1,7 +1,7 @@
 [project]
 name = "sudoku-board"
 version = "0.1.0"
-description = "A validating parser and pretty printer for sudoku boards"
+description = "A validating parser, solver, and pretty printer for sudoku boards"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

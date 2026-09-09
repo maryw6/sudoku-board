@@ -103,20 +103,51 @@ duplicate 5 in row 1: r1c1, r1c2
 duplicate 5 in box 1: r1c1, r1c2
 ```
 
+Pass `--solve` to fill in the rest of the board instead of just printing
+the clues as given:
+
+```
+$ sudoku-board --solve puzzle.txt
++-------+-------+-------+
+| 5 3 4 | 6 7 8 | 9 1 2 |
+| 6 7 2 | 1 9 5 | 3 4 8 |
+| 1 9 8 | 3 4 2 | 5 6 7 |
++-------+-------+-------+
+| 8 5 9 | 7 6 1 | 4 2 3 |
+| 4 2 6 | 8 5 3 | 7 9 1 |
+| 7 1 3 | 9 2 4 | 8 5 6 |
++-------+-------+-------+
+| 9 6 1 | 5 3 7 | 2 8 4 |
+| 2 8 7 | 4 1 9 | 6 3 5 |
+| 3 4 5 | 2 8 6 | 1 7 9 |
++-------+-------+-------+
+```
+
+If the clues already conflict, or if there's no way to complete the
+board without breaking a rule, `--solve` exits 1 and reports why instead
+of printing a board.
+
 ## As a library
 
 ```python
-from sudoku_board import parse, find_conflicts, format_pretty
+from sudoku_board import parse, find_conflicts, format_pretty, solve
 
 board = parse(open("puzzle.txt").read())
 conflicts = find_conflicts(board)
 print(format_pretty(board, conflicts))
+
+solution = solve(board)  # raises UnsolvableError if there's no completion
 ```
 
 `parse` raises `BoardParseError` for structural problems (wrong cell
 count, characters that aren't `1`-`9`/`.`/`0`/`_`). It never raises for
 clue collisions; those come back from `find_conflicts` so you can
 decide what to do with them.
+
+`solve` uses plain backtracking; it returns one valid completion of the
+board (there may be others if the clues don't pin down a unique
+solution), or raises `UnsolvableError` if the clues conflict or no
+completion exists.
 
 ## Tests
 

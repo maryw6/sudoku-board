@@ -8,6 +8,7 @@ from .board import (
     parse,
 )
 from .printer import format_json, format_pretty
+from .solver import UnsolvableError, solve
 
 __version__ = "0.1.0"
 
@@ -21,4 +22,6 @@ __all__ = [
     "parse",
     "format_json",
     "format_pretty",
+    "UnsolvableError",
+    "solve",
 ]
