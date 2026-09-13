@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from .board import BoardParseError, find_conflicts, parse
+from .board import BoardParseError, find_conflicts, parse, parse_warnings
 from .printer import format_json, format_pretty
 from .solver import UnsolvableError, solve
 
@@ -26,6 +26,11 @@ def main(argv=None):
         action="store_true",
         help="print a completed solution instead of the clues as given",
     )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="treat parse warnings (e.g. too few clues) as errors",
+    )
     args = parser.parse_args(argv)
 
     if args.file:
@@ -39,6 +44,14 @@ def main(argv=None):
     except BoardParseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+    warnings = parse_warnings(board)
+    if warnings and args.strict:
+        for warning in warnings:
+            print(f"error: {warning}", file=sys.stderr)
+        return 1
+    for warning in warnings:
+        print(f"warning: {warning}", file=sys.stderr)
 
     conflicts = find_conflicts(board)
 

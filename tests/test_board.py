@@ -1,12 +1,15 @@
 import unittest
 
 from sudoku_board.board import (
+    MIN_CLUES_FOR_UNIQUE_SOLUTION,
     Board,
     BoardParseError,
     Conflict,
+    clue_count,
     find_conflicts,
     is_valid,
     parse,
+    parse_warnings,
 )
 
 # A complete, valid solution. Used as a base for conflict tests since any
@@ -117,6 +120,49 @@ class FindConflictsTests(unittest.TestCase):
         row_conflicts = [c for c in find_conflicts(board) if c.kind == "row"]
         self.assertEqual(len(row_conflicts), 1)
         self.assertEqual(row_conflicts[0].cells, ((0, 0), (0, 1), (0, 2)))
+
+
+class ParseWarningsTests(unittest.TestCase):
+    def test_solved_board_has_no_warnings(self):
+        board = parse(SOLVED)
+        self.assertEqual(clue_count(board), 81)
+        self.assertEqual(parse_warnings(board), [])
+
+    def test_empty_board_warns_about_clue_count(self):
+        board = parse("0" * 81)
+        self.assertEqual(clue_count(board), 0)
+        warnings = parse_warnings(board)
+        self.assertEqual(len(warnings), 1)
+        self.assertIn(str(MIN_CLUES_FOR_UNIQUE_SOLUTION), warnings[0])
+
+    def test_board_right_at_the_minimum_has_no_warning(self):
+        cells = [[0] * 9 for _ in range(9)]
+        solved = parse(SOLVED)
+        placed = 0
+        for r in range(9):
+            for c in range(9):
+                if placed == MIN_CLUES_FOR_UNIQUE_SOLUTION:
+                    break
+                cells[r][c] = solved.cells[r][c]
+                placed += 1
+        board = Board(cells)
+        self.assertEqual(clue_count(board), MIN_CLUES_FOR_UNIQUE_SOLUTION)
+        self.assertEqual(parse_warnings(board), [])
+
+    def test_one_clue_below_minimum_warns(self):
+        cells = [[0] * 9 for _ in range(9)]
+        solved = parse(SOLVED)
+        placed = 0
+        target = MIN_CLUES_FOR_UNIQUE_SOLUTION - 1
+        for r in range(9):
+            for c in range(9):
+                if placed == target:
+                    break
+                cells[r][c] = solved.cells[r][c]
+                placed += 1
+        board = Board(cells)
+        self.assertEqual(clue_count(board), target)
+        self.assertEqual(len(parse_warnings(board)), 1)
 
 
 if __name__ == "__main__":

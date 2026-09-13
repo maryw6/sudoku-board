@@ -14,6 +14,11 @@ EMPTY = 0
 _EMPTY_CHARS = {".", "0", "_"}
 _DIGIT_CHARS = set("123456789")
 
+# Proven minimum number of clues a 9x9 sudoku can have and still have a
+# unique solution (McGuire, Tugemann, Civario, 2012). Fewer than this and
+# the puzzle is either underspecified or was never meant to be solved.
+MIN_CLUES_FOR_UNIQUE_SOLUTION = 17
+
 
 class BoardError(Exception):
     """Base class for problems with a sudoku board."""
@@ -121,3 +126,25 @@ def _unit_position_to_cell(kind, index, pos):
 
 def is_valid(board):
     return not find_conflicts(board)
+
+
+def clue_count(board):
+    """Number of non-empty cells."""
+    return sum(1 for row in board.cells for value in row if value != EMPTY)
+
+
+def parse_warnings(board):
+    """Non-fatal problems with a board that parsed successfully.
+
+    These don't stop parse() from returning a Board - the shape and
+    characters were fine - but they flag a puzzle that's probably not
+    what the caller meant to hand over.
+    """
+    warnings = []
+    n = clue_count(board)
+    if n < MIN_CLUES_FOR_UNIQUE_SOLUTION:
+        warnings.append(
+            f"only {n} clue{'s' if n != 1 else ''} given; no 9x9 sudoku has a "
+            f"unique solution with fewer than {MIN_CLUES_FOR_UNIQUE_SOLUTION}"
+        )
+    return warnings

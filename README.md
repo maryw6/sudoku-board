@@ -127,10 +127,30 @@ If the clues already conflict, or if there's no way to complete the
 board without breaking a rule, `--solve` exits 1 and reports why instead
 of printing a board.
 
+A board that parses fine can still be a bad puzzle - the best-known
+example is having too few clues to pin down a unique solution (fewer
+than 17, which is a proven lower bound). Cases like that print a
+warning on stderr but otherwise proceed normally:
+
+```
+$ sudoku-board sparse.txt
+warning: only 4 clues given; no 9x9 sudoku has a unique solution with fewer than 17
++-------+-------+-------+
+...
+```
+
+Pass `--strict` to treat these warnings as errors instead - the board
+is not printed and the command exits 1.
+
+```
+$ sudoku-board --strict sparse.txt
+error: only 4 clues given; no 9x9 sudoku has a unique solution with fewer than 17
+```
+
 ## As a library
 
 ```python
-from sudoku_board import parse, find_conflicts, format_pretty, solve
+from sudoku_board import parse, find_conflicts, parse_warnings, format_pretty, solve
 
 board = parse(open("puzzle.txt").read())
 conflicts = find_conflicts(board)
@@ -143,6 +163,11 @@ solution = solve(board)  # raises UnsolvableError if there's no completion
 count, characters that aren't `1`-`9`/`.`/`0`/`_`). It never raises for
 clue collisions; those come back from `find_conflicts` so you can
 decide what to do with them.
+
+`parse_warnings` returns a list of strings describing non-fatal issues
+with a board that parsed successfully - right now, just having fewer
+than 17 clues. It's separate from `find_conflicts` because a sparse
+board isn't necessarily wrong, just suspicious.
 
 `solve` uses plain backtracking; it returns one valid completion of the
 board (there may be others if the clues don't pin down a unique
