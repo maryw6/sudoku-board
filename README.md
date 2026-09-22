@@ -147,6 +147,34 @@ $ sudoku-board --strict sparse.txt
 error: only 4 clues given; no 9x9 sudoku has a unique solution with fewer than 17
 ```
 
+## Multiple files
+
+Pass more than one path to process them all in a single invocation. Each
+board gets a `== path ==` header, and one bad file (a parse error, a
+strict warning, or `--solve` finding no completion) doesn't stop the
+rest from being processed - it's reported on stderr and the file's
+block shows the error instead of a board:
+
+```
+$ sudoku-board puzzle.txt other.txt
+== puzzle.txt ==
++-------+-------+-------+
+| 5 3 . | . 7 . | . . . |
+...
++-------+-------+-------+
+
+== other.txt ==
++-------+-------+-------+
+...
++-------+-------+-------+
+```
+
+The exit code is 1 if any file failed to parse or had a conflict. With
+`--json`, the output is a single JSON array, one object per file, each
+carrying a `"file"` key alongside the usual `cells`/`valid`/`conflicts`
+fields (or just `"file"` and `"error"` for a file that couldn't be
+processed).
+
 ## As a library
 
 ```python

@@ -1,4 +1,5 @@
 import argparse
+import json
 import sys
 
 from .board import BoardParseError, find_conflicts, parse, parse_warnings
@@ -12,9 +13,9 @@ def main(argv=None):
         description="Parse, validate, print, and solve a sudoku board.",
     )
     parser.add_argument(
-        "file",
-        nargs="?",
-        help="path to a puzzle file (defaults to stdin)",
+        "files",
+        nargs="*",
+        help="paths to one or more puzzle files (defaults to stdin if omitted)",
     )
     parser.add_argument(
         "--json",
@@ -33,8 +34,15 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
 
-    if args.file:
-        with open(args.file, "r", encoding="utf-8") as f:
+    if len(args.files) > 1:
+        return _run_many(args.files, args)
+    return _run_one(args.files[0] if args.files else None, args)
+
+
+def _run_one(path, args):
+    """Original single-board behavior: no filename headers in the output."""
+    if path:
+        with open(path, "r", encoding="utf-8") as f:
             text = f.read()
     else:
         text = sys.stdin.read()
@@ -66,6 +74,84 @@ def main(argv=None):
     output = format_json(board, conflicts) if args.json else format_pretty(board, conflicts)
     print(output)
     return 1 if conflicts else 0
+
+
+def _run_many(paths, args):
+    """Process several files in one invocation, one board per path.
+
+    A bad file (parse error, strict warning, unsolvable) doesn't stop the
+    rest from being processed - it's reported and the run's exit code
+    reflects that something failed, same as if it were the only file.
+    """
+    entries = []
+    failed = False
+
+    for path in paths:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                text = f.read()
+        except OSError as exc:
+            print(f"error: {path}: {exc.strerror or exc}", file=sys.stderr)
+            entries.append({"file": path, "error": str(exc.strerror or exc)})
+            failed = True
+            continue
+
+        try:
+            board = parse(text)
+        except BoardParseError as exc:
+            print(f"error: {path}: {exc}", file=sys.stderr)
+            entries.append({"file": path, "error": str(exc)})
+            failed = True
+            continue
+
+        warnings = parse_warnings(board)
+        if warnings and args.strict:
+            for warning in warnings:
+                print(f"error: {path}: {warning}", file=sys.stderr)
+            entries.append({"file": path, "error": "; ".join(warnings)})
+            failed = True
+            continue
+        for warning in warnings:
+            print(f"warning: {path}: {warning}", file=sys.stderr)
+
+        conflicts = find_conflicts(board)
+
+        if args.solve:
+            try:
+                board = solve(board)
+            except UnsolvableError as exc:
+                print(f"error: {path}: {exc}", file=sys.stderr)
+                entries.append({"file": path, "error": str(exc)})
+                failed = True
+                continue
+            conflicts = []
+
+        if conflicts:
+            failed = True
+        entries.append({"file": path, "board": board, "conflicts": conflicts})
+
+    if args.json:
+        payloads = []
+        for entry in entries:
+            if "error" in entry:
+                payloads.append({"file": entry["file"], "error": entry["error"]})
+            else:
+                payload = json.loads(format_json(entry["board"], entry["conflicts"]))
+                payloads.append({"file": entry["file"], **payload})
+        print(json.dumps(payloads, indent=2))
+    else:
+        blocks = []
+        for entry in entries:
+            if "error" in entry:
+                blocks.append(f"== {entry['file']} ==\nerror: {entry['error']}")
+            else:
+                blocks.append(
+                    f"== {entry['file']} ==\n"
+                    + format_pretty(entry["board"], entry["conflicts"])
+                )
+        print("\n\n".join(blocks))
+
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
