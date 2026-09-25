@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 import unittest.mock
+import urllib.error
 from pathlib import Path
 
 from sudoku_board.cli import main
@@ -58,6 +59,27 @@ class SingleSourceTests(unittest.TestCase):
             code, out, _ = _run([str(path)])
         self.assertEqual(code, 1)
         self.assertIn("duplicate", out)
+
+
+class UrlSourceTests(unittest.TestCase):
+    def test_url_source_is_fetched_instead_of_opened(self):
+        response = io.BytesIO(SOLVED.encode("utf-8"))
+        with unittest.mock.patch("sudoku_board.cli.urllib.request.urlopen") as urlopen:
+            urlopen.return_value.__enter__.return_value = response
+            code, out, _ = _run(["https://example.com/puzzle.txt"])
+        urlopen.assert_called_once_with("https://example.com/puzzle.txt", timeout=10)
+        self.assertEqual(code, 0)
+        self.assertIn("| 5 3 4 | 6 7 8 | 9 1 2 |", out)
+
+    def test_url_fetch_failure_is_reported_like_a_missing_file(self):
+        with unittest.mock.patch(
+            "sudoku_board.cli.urllib.request.urlopen",
+            side_effect=urllib.error.URLError("name resolution failed"),
+        ):
+            code, out, err = _run(["https://example.com/missing.txt"])
+        self.assertEqual(code, 1)
+        self.assertEqual(out, "")
+        self.assertIn("error: https://example.com/missing.txt:", err)
 
 
 class MultipleFileTests(unittest.TestCase):

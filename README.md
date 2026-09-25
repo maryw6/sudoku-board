@@ -69,7 +69,14 @@ $ sudoku-board puzzle.txt
 ```
 
 With no file argument it reads from stdin, so a puzzle can be piped in
-directly. Pass `--json` for a machine-readable form instead:
+directly. A source can also be an `http://` or `https://` URL, in which
+case the puzzle text is fetched instead of read from disk:
+
+```
+$ sudoku-board https://example.com/puzzle.txt
+```
+
+Pass `--json` for a machine-readable form instead:
 
 ```
 $ sudoku-board --json puzzle.txt
@@ -149,7 +156,8 @@ error: only 4 clues given; no 9x9 sudoku has a unique solution with fewer than 1
 
 ## Multiple files
 
-Pass more than one path to process them all in a single invocation. Each
+Pass more than one path or URL to process them all in a single
+invocation, in any combination. Each
 board gets a `== path ==` header, and one bad file (a parse error, a
 strict warning, or `--solve` finding no completion) doesn't stop the
 rest from being processed - it's reported on stderr and the file's

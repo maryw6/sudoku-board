@@ -1,10 +1,27 @@
 import argparse
 import json
 import sys
+import urllib.request
 
 from .board import BoardParseError, find_conflicts, parse, parse_warnings
 from .printer import format_json, format_pretty
 from .solver import UnsolvableError, solve
+
+_URL_PREFIXES = ("http://", "https://")
+
+
+def _read_source(source):
+    """Read puzzle text from a local file path or an http(s) URL.
+
+    URLError (including HTTPError) is a subclass of OSError, so callers
+    can catch OSError the same way whether the source turned out to be a
+    file or a URL.
+    """
+    if source.startswith(_URL_PREFIXES):
+        with urllib.request.urlopen(source, timeout=10) as response:
+            return response.read().decode("utf-8")
+    with open(source, "r", encoding="utf-8") as f:
+        return f.read()
 
 
 def main(argv=None):
@@ -15,7 +32,10 @@ def main(argv=None):
     parser.add_argument(
         "files",
         nargs="*",
-        help="paths to one or more puzzle files (defaults to stdin if omitted)",
+        help=(
+            "one or more puzzle sources: file paths, http(s) URLs, or "
+            "omitted to read from stdin"
+        ),
     )
     parser.add_argument(
         "--json",
@@ -42,8 +62,11 @@ def main(argv=None):
 def _run_one(path, args):
     """Original single-board behavior: no filename headers in the output."""
     if path:
-        with open(path, "r", encoding="utf-8") as f:
-            text = f.read()
+        try:
+            text = _read_source(path)
+        except OSError as exc:
+            print(f"error: {path}: {exc.strerror or exc}", file=sys.stderr)
+            return 1
     else:
         text = sys.stdin.read()
 
@@ -88,8 +111,7 @@ def _run_many(paths, args):
 
     for path in paths:
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                text = f.read()
+            text = _read_source(path)
         except OSError as exc:
             print(f"error: {path}: {exc.strerror or exc}", file=sys.stderr)
             entries.append({"file": path, "error": str(exc.strerror or exc)})
