@@ -134,6 +134,23 @@ If the clues already conflict, or if there's no way to complete the
 board without breaking a rule, `--solve` exits 1 and reports why instead
 of printing a board.
 
+Pass `--difficulty` to rate the puzzle from its clues as given (before
+`--solve` fills anything in):
+
+```
+$ sudoku-board --difficulty blank.txt
+...
+difficulty: hard (0 clues, needs backtracking)
+```
+
+The rating is the weakest technique that finishes the board: naked
+singles only is `easy`, needing hidden singles is `medium`, and a board
+that stalls on both is `hard` (reported as needing backtracking). A
+board that singles can finish but that has fewer than 26 clues is bumped
+from `easy` to `medium`. With `--json` the result is a `difficulty`
+object with `level`, `technique`, and `clues`. Boards with conflicting
+clues get the conflict report instead of a rating.
+
 A board that parses fine can still be a bad puzzle - the best-known
 example is having too few clues to pin down a unique solution (fewer
 than 17, which is a proven lower bound). Cases like that print a
@@ -204,6 +221,10 @@ decide what to do with them.
 with a board that parsed successfully - right now, just having fewer
 than 17 clues. It's separate from `find_conflicts` because a sparse
 board isn't necessarily wrong, just suspicious.
+
+`estimate_difficulty(board)` returns a `Difficulty` with `level`,
+`technique`, and `clues`, and raises `UnsolvableError` for boards with
+conflicting clues or no completion.
 
 `solve` uses plain backtracking; it returns one valid completion of the
 board (there may be others if the clues don't pin down a unique

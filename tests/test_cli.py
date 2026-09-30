@@ -61,6 +61,44 @@ class SingleSourceTests(unittest.TestCase):
         self.assertIn("duplicate", out)
 
 
+class DifficultyFlagTests(unittest.TestCase):
+    def test_text_output_ends_with_a_difficulty_line(self):
+        code, out, _ = _run(["--difficulty"], stdin_text=SOLVED)
+        self.assertEqual(code, 0)
+        self.assertIn("difficulty: easy (81 clues, needs naked singles)", out)
+
+    def test_not_shown_without_the_flag(self):
+        _, out, _ = _run([], stdin_text=SOLVED)
+        self.assertNotIn("difficulty", out)
+
+    def test_json_output_gets_a_difficulty_object(self):
+        code, out, _ = _run(["--json", "--difficulty"], stdin_text=SOLVED)
+        self.assertEqual(code, 0)
+        payload = json.loads(out)
+        self.assertEqual(
+            payload["difficulty"],
+            {"level": "easy", "technique": "naked singles", "clues": 81},
+        )
+
+    def test_conflicting_board_reports_conflicts_not_a_rating(self):
+        code, out, _ = _run(["--difficulty"], stdin_text=CONFLICTING)
+        self.assertEqual(code, 1)
+        self.assertIn("duplicate", out)
+        self.assertNotIn("difficulty:", out)
+
+    def test_multiple_files_each_get_a_rating(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a = Path(tmp, "a.txt")
+            b = Path(tmp, "b.txt")
+            a.write_text(SOLVED)
+            b.write_text("0" * 81)
+            code, out, _ = _run(["--json", "--difficulty", str(a), str(b)])
+        self.assertEqual(code, 0)
+        payload = json.loads(out)
+        self.assertEqual(payload[0]["difficulty"]["level"], "easy")
+        self.assertEqual(payload[1]["difficulty"]["level"], "hard")
+
+
 class UrlSourceTests(unittest.TestCase):
     def test_url_source_is_fetched_instead_of_opened(self):
         response = io.BytesIO(SOLVED.encode("utf-8"))

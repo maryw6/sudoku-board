@@ -9,6 +9,7 @@ from .board import (
     parse,
     parse_warnings,
 )
+from .difficulty import Difficulty, estimate_difficulty
 from .printer import format_json, format_pretty
 from .solver import UnsolvableError, solve
 
@@ -19,6 +20,8 @@ __all__ = [
     "BoardError",
     "BoardParseError",
     "Conflict",
+    "Difficulty",
+    "estimate_difficulty",
     "clue_count",
     "find_conflicts",
     "is_valid",

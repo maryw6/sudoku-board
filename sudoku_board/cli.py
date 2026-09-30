@@ -4,6 +4,7 @@ import sys
 import urllib.request
 
 from .board import BoardParseError, find_conflicts, parse, parse_warnings
+from .difficulty import estimate_difficulty
 from .printer import format_json, format_pretty
 from .solver import UnsolvableError, solve
 
@@ -52,6 +53,11 @@ def main(argv=None):
         action="store_true",
         help="treat parse warnings (e.g. too few clues) as errors",
     )
+    parser.add_argument(
+        "--difficulty",
+        action="store_true",
+        help="rate the puzzle as easy, medium, or hard from its clues",
+    )
     args = parser.parse_args(argv)
 
     if len(args.files) > 1:
@@ -86,6 +92,16 @@ def _run_one(path, args):
 
     conflicts = find_conflicts(board)
 
+    # Rated from the clues as given, before --solve fills them in. Skipped
+    # when clues conflict: the conflict report is the useful output there.
+    difficulty = None
+    if args.difficulty and not conflicts:
+        try:
+            difficulty = estimate_difficulty(board)
+        except UnsolvableError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+
     if args.solve:
         try:
             board = solve(board)
@@ -94,9 +110,32 @@ def _run_one(path, args):
             return 1
         conflicts = []
 
-    output = format_json(board, conflicts) if args.json else format_pretty(board, conflicts)
+    if args.json:
+        payload = json.loads(format_json(board, conflicts))
+        if difficulty:
+            payload["difficulty"] = _difficulty_dict(difficulty)
+        output = json.dumps(payload, indent=2)
+    else:
+        output = format_pretty(board, conflicts)
+        if difficulty:
+            output += "\n\n" + _describe_difficulty(difficulty)
     print(output)
     return 1 if conflicts else 0
+
+
+def _difficulty_dict(difficulty):
+    return {
+        "level": difficulty.level,
+        "technique": difficulty.technique,
+        "clues": difficulty.clues,
+    }
+
+
+def _describe_difficulty(difficulty):
+    return (
+        f"difficulty: {difficulty.level} "
+        f"({difficulty.clues} clues, needs {difficulty.technique})"
+    )
 
 
 def _run_many(paths, args):
@@ -138,6 +177,16 @@ def _run_many(paths, args):
 
         conflicts = find_conflicts(board)
 
+        difficulty = None
+        if args.difficulty and not conflicts:
+            try:
+                difficulty = estimate_difficulty(board)
+            except UnsolvableError as exc:
+                print(f"error: {path}: {exc}", file=sys.stderr)
+                entries.append({"file": path, "error": str(exc)})
+                failed = True
+                continue
+
         if args.solve:
             try:
                 board = solve(board)
@@ -150,7 +199,14 @@ def _run_many(paths, args):
 
         if conflicts:
             failed = True
-        entries.append({"file": path, "board": board, "conflicts": conflicts})
+        entries.append(
+            {
+                "file": path,
+                "board": board,
+                "conflicts": conflicts,
+                "difficulty": difficulty,
+            }
+        )
 
     if args.json:
         payloads = []
@@ -159,6 +215,8 @@ def _run_many(paths, args):
                 payloads.append({"file": entry["file"], "error": entry["error"]})
             else:
                 payload = json.loads(format_json(entry["board"], entry["conflicts"]))
+                if entry["difficulty"]:
+                    payload["difficulty"] = _difficulty_dict(entry["difficulty"])
                 payloads.append({"file": entry["file"], **payload})
         print(json.dumps(payloads, indent=2))
     else:
@@ -167,10 +225,12 @@ def _run_many(paths, args):
             if "error" in entry:
                 blocks.append(f"== {entry['file']} ==\nerror: {entry['error']}")
             else:
-                blocks.append(
-                    f"== {entry['file']} ==\n"
-                    + format_pretty(entry["board"], entry["conflicts"])
+                block = f"== {entry['file']} ==\n" + format_pretty(
+                    entry["board"], entry["conflicts"]
                 )
+                if entry["difficulty"]:
+                    block += "\n\n" + _describe_difficulty(entry["difficulty"])
+                blocks.append(block)
         print("\n\n".join(blocks))
 
     return 1 if failed else 0
